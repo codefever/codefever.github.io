@@ -4,10 +4,10 @@
 # ---------------------------------------------------------------
 
 # Site
-title: NexT
-subtitle:
+title: N's Notes
+subtitle: Fever for Coding
 description:
-author: John Doe
+author: Nelson LIAO
 # Support language: de, en, fr-FR, id, ja, ko, pt-BR, pt, ru, zh-Hans, zh-hk, zh-tw
 language: en
 date_format: '%Y-%m-%d'
@@ -79,7 +79,7 @@ plugins:
 favicon: /assets/favicon.ico
 
 # Set default keywords (Use a comma to separate)
-keywords: "Jekyll, NexT"
+keywords: "coder, developer, system, software-engineering, linux, distributed-system"
 
 # Set rss to false to disable feed link.
 # Leave rss as empty to use site's feed link.
@@ -105,7 +105,7 @@ copyright: true
 canonical: true
 
 # Change headers hierarchy on site-subtitle (will be main site description) and on all post/pages titles for better SEO-optimization.
-seo: false
+seo: true
 
 # If true, will add site-subtitle to index page, added in jekyll config.
 # subtitle: Subtitle
@@ -151,9 +151,9 @@ menu_icons:
 # ---------------------------------------------------------------
 
 # Schemes
-scheme: Muse
-#scheme: Mist
+#scheme: Muse
 #scheme: Pisces
+scheme: Mist
 
 
 # ---------------------------------------------------------------
@@ -215,6 +215,9 @@ font:
 # Value is the target link (E.g. GitHub: https://github.com/iissnan)
 #social:
   #LinkLabel: Link
+social:
+  GitHub: https://github.com/codefever
+  LeetCode: https://leetcode.com/codefever/
 
 
 # Social Links Icons
@@ -233,7 +236,7 @@ social_icons:
 
 # Sidebar Avatar
 # in directory: /assets/images/avatar.gif
-#avatar:
+avatar: https://avatars3.githubusercontent.com/u/1624981
 
 
 # Table Of Contents in the Sidebar
@@ -380,8 +383,8 @@ han: false
 
 # Disqus
 disqus:
-  enable: false
-  shortname:
+  enable: true
+  shortname: nxblog-1
   count: true
   # hide comments (visitors need to click to load the comments)
   # count need to be false when hide is true
@@ -462,7 +465,7 @@ gitalk:
 #google_site_verification:
 
 # Google Analytics
-#google_analytics:
+google_analytics: UA-146132034-1
 
 # Yandex Webmaster tools verification setting
 # See: https://webmaster.yandex.ru/
