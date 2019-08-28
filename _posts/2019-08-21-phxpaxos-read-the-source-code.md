@@ -10,16 +10,47 @@ tags:
 > [Phxpoxos](https://github.com/Tencent/phxpaxos)是微信团队在几年前开源的Paxos实现。本文着重从算法实现与代码设计的角度对其进行分析……
 
 ## 算法基础
+
+参考资料
 * [Paxos made simple](https://www.microsoft.com/en-us/research/publication/paxos-made-simple/)
 * [微信 PaxosStore：深入浅出 Paxos 算法协议](https://www.infoq.cn/article/wechat-paxosstore-paxos-algorithm-protocol/)
 
-总括而言：
-* BasicPaxos通过Acceptor达成的多数派来决定一个value是否被选中。但因为Acceptor是个在分布式环境，多机达成一致是比较困难的，所以算法推导的时候将一部分的决策工作转移给Proposer来做：如果Prepare返回的多数派Acceptor有接收过任意value，Proposer则会将当前Proposal的value更改为其中Proposal Number最新的value，并以当前的Proposal Number广播给Acceptor来接收。这样一旦在Acceptor中有多数派接受了这个value后，因为集合中的两个多数派至少会存在一个交集节点，Proposer在后续Prepare请求中必然会看到这个value以较大的Proposal Number出现，且后续Accept请求只能携带这个value，只要网络不故障，所有Acceptor会逐步达到最终一致的状态。
-* MultiPaxos将前者推广到多个value的情况下，只要Prepare通过了，依照Accept的规则可以用相同的Proposal Number给多个value进行提交，有利于在工程实现的时候将value看成是连续单调的log，在此基础上实现[state machine replication](https://en.wikipedia.org/wiki/State_machine_replication)的业务逻辑。
-
-## 概念
+概念
 * Group：Paxos算法的执行机构，包含若干个执行成员。每个Group在数据与逻辑上都是各自独立的。
 * Node：这套算法实现的逻辑节点，可以参与多个Group，作为这些Group的执行成员存在。
+
+### BasicPaxos
+BasicPaxos通过Acceptor达成的多数派来决定一个value是否被选中。但因为Acceptor是个在分布式环境，多机达成一致是比较困难的，所以算法推导的时候将一部分的决策工作转移给Proposer来做：如果Prepare返回的多数派Acceptor有接收过任意value，Proposer则会将当前Proposal的value更改为其中Proposal Number最新的value，并以当前的Proposal Number广播给Acceptor来接收。
+
+如何确定一个value是否被chosen？个人认为，只有当value所代表的提议被多数派Acceptor接受，且它们Proposal Number大于其他少数派的Proposal Number，则可以确定这个value是被选中的状态。以下用```(PromisedNumber, <AcceptedNumber, value>)```来表示Acceptor的状态，举例子来梳理一把。
+
+    A(1, <1,'hi'>) -- B(4, <2,'hello'>) -- C(3, <3,'world'>) -- D(4, <4,'hello'>) -- E(4, <4,'hello'>)
+
+这个例子里的状态可以通过这样的步骤生成：
+1. Proposer①发起```value='hi'```的**提议1**，只得知ABC同意；由于ABC没记录过值，所以可以按提议内容提交value；但最终只写入了A。
+
+        A(1, <1,'hi'>) -- B(1, <>) -- C(1, <>) -- D(0, <>) -- E(0, <>)
+
+2. 某个Proposer②发起```value='hello'```的**提议2**，只得知BCD同意；由于BCD没记录过值，所以可以按提议内容提交value；但最终只写入了B。
+
+        A(1, <1,'hi'>) -- B(2, <2,'hello'>) -- C(2, <>) -- D(2, <>) -- E(0, <>)
+
+3. 某个Proposer③发起```value='world'```的**提议3**，只得知CDE同意；由于CDE没记录过值，所以可以按提议内容提交value；但最终只写入了C。
+
+        A(1, <1,'hi'>) -- B(2, <2,'hello'>) -- C(3, <3,'world'>) -- D(3, <>) -- E(3, <>)
+
+4. 某个Proposer④发起```value='$$$$'```(内容已经不重要了）的**提议4**，只得知BDE同意；其中B曾经接收过提议<2,'hello'>，故将此记录返回给Proposer；Proposer只好将自己提议内容改为```<4,'hello'>```，但只写入了DE。
+
+这个例子里面似乎网络环境非常差，但最后```value='hello'```已经被多数派Acceptor持有了，这是不是就意味着已经被**最终确定**呢？我们可以再发起一轮任意值的Proposal，再来推演一把。
+
+如果这次响应的Acceptor包含DE两者或其中之一，那么Proposal的提议内容会被迫替换成“hello”，```value='hello'```的提议有机会在更多的Acceptor里扩散开来。但如果这次响应的Acceptor只有ABC呢？由于C的AcceptedNumber最大，提议内容会被替换成“world”，那么反倒会很可能导致ABC都接受“world”为最终决议。如下图所示，AB收到了新提议```<5,'world'>```，C保持不变，此时```value='world'```已经成了多数派，且AcceptedNumber大于少数派接受过的提议。
+
+    A(5, <5,'world'>) -- B(5, <5,'world'>) -- C(5, <3,'world'>) -- D(4, <4,'hello'>) -- E(4, <4,'hello'>)
+
+按这样推演下去，因为集合中的两个多数派至少会存在一个交集节点，后续Proposer在Prepare请求中必然会看到这个value以较大的Proposal Number出现，只要网络不完全崩坏，所有Acceptor最终会接受“world”这个结论。
+
+### MultiPaxos
+MultiPaxos将BasicPaxos推广到多个value的情况下，只要Prepare通过了，依照Accept的规则可以用相同的Proposal Number给多个value进行提交，有利于在工程实现的时候将value看成是连续单调的log，在此基础上实现[state machine replication](https://en.wikipedia.org/wiki/State_machine_replication)的业务逻辑。
 
 ## 接口
 * Breakpoint：框架事件回调，用于调试、统计或者打log
