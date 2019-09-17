@@ -13,7 +13,7 @@ tags:
 拓展到分布式语境下，对于系统中的状态或变量发起修改不再是瞬间完成的，从调用开始到调用返回会有一段时间开销。如何判断一个分布式系统是具备线性一致性？首先我们约定好线性一致性条件下请求之间的相互关系：
 
 * 对于调用时间有交叠的```并发```请求，生效的顺序可以任意确定，比如分别有并发的读写请求，那么读请求可以返回新值，也可以返回旧值。
-* 对于调用时间有```偏序```的请求，比如请求B开始在请求A结束之后，那么请求B的结果不能违背请求B已确定的结果。
+* 对于调用时间有```偏序```的请求，比如请求B开始在请求A结束之后，那么请求B的结果不能违背请求A已确定的结果。
 
 ![线性一致性例子(DDIA)](/assets/post_images/linearizability.png)
 
@@ -114,11 +114,12 @@ func (r *readIndex) confirm(ctx raftpb.SystemCtx,
 ```
 
 ### Lease Read
-可以认为是ReadIndex的时间戳版本，leader发起heartbeat请求时记录一个start时间戳，获得多数派确认后则可以保证leadership的截止时间至少到start+election_timeout，那么在此之前的读请求都可以直接从状态机读。
+在raft作者的博士论文里也提出了Lease Read的方法，作为ReadIndex的简化。Lead Read可以认为是ReadIndex的时间戳版本，leader发起heartbeat请求时记录一个start时间戳，获得多数派确认后则可以保证leadership的截止时间至少到start+election_timeout，那么在此之前的读请求都可以直接从状态机读。
 
-相比前者，这里的逻辑负担会更少，不过完全依赖时间戳并非靠谱的方案，当时钟抖动时很可能会引发一些问题。
+相比前者，这里的逻辑负担会更少，不过完全依赖时间戳并非靠谱的方案，如前所述当时钟抖动时很可能会引发一些问题，除非超时阈值特殊设计一下。
 
 ## 参考资料
+* [Consensus: Bridging Theory and Practice](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)
 * [Strong consistency models](https://aphyr.com/posts/313-strong-consistency-models)
 * [Linearizability: A Correctness Condition for Concurrent Objects](https://cs.brown.edu/~mph/HerlihyW90/p463-herlihy.pdf)
 * [Designing Data-Intensive Applications (DDIA)]( https://dataintensive.net/)
